@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaskManagementAPI.Data;
+using TaskManagementAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +14,10 @@ builder.Services.AddOpenApi();
 // Sabse pehle Connection string read karte he appsettings.json file se voh connection string jaati he ApplicationDbContext me aur ApplicationDbContext voh saari chije lekar jaata he aur pass kardeta he DbContext fir DbContext basically Session manage karta he.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register Auth Service
+// AddScoped me har ek request ke liye jo service hoti he uska new instance banta he (Request ki shuruvat me), Uske baad me vahi request ka jo object hota he voh within the request serve hota rehta he, fir jab ham new request karte he toh firse new object banta he aur within that request vahi object serve hota rehta he, jab request khatam ho jaati he toh voh bana hua object apne aap destroy ho jaata he
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 
