@@ -34,5 +34,24 @@ namespace TaskManagementAPI.Controllers
                 return StatusCode(500, new { message = "An error during registration", details = ex.Message });
             }
         }
+
+        // DTO banaya fir configure ki, fir services banayi uske baad ham controller me jaa rahe he fir finally program.cs me
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+        {
+            try
+            {
+                var response = await _authService.LoginAsync(loginDto);
+                return Ok(response);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message});
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new {message = "An error occured during login", details = ex.Message});
+            }
+        }
     }
 }
