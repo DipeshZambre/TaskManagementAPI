@@ -23,6 +23,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // AddScoped me har ek request ke liye jo service hoti he uska new instance banta he (Request ki shuruvat me), Uske baad me vahi request ka jo object hota he voh within the request serve hota rehta he, fir jab ham new request karte he toh firse new object banta he aur within that request vahi object serve hota rehta he, jab request khatam ho jaati he toh voh bana hua object apne aap destroy ho jaata he
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// Register Task Service
+builder.Services.AddScoped<ITaskService, TaskService>();
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
