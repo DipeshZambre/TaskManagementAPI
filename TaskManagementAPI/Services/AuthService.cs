@@ -6,6 +6,7 @@ using TaskManagementAPI.Data;
 using TaskManagementAPI.DTOs;
 using TaskManagementAPI.Models;
 using System.IdentityModel.Tokens.Jwt;
+using TaskManagementAPI.Constants;
 
 
 namespace TaskManagementAPI.Services
@@ -22,48 +23,22 @@ namespace TaskManagementAPI.Services
             _configuration = configuration;
         }
 
+
         public async Task<UserResponseDto> RegisterAsync(RegisterDto registerDto)
         {
-            var existimgUser = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == registerDto.Email || u.Username == registerDto.Username);
-
-
-            if(existimgUser != null)
-            {
-                throw new InvalidOperationException("User with this email or username already exists");
-            }
-
-            // Hash the password
-            var passwordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
-
-            var user = new User
-            {
-                Username = registerDto.Username,
-                Email = registerDto.Email,
-                PasswordHash = passwordHash,
-                CreatedAt = DateTime.UtcNow
-
-            };
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            return new UserResponseDto
-            {
-                Id = user.Id,
-                Username = user.Username,
-                Email = user.Email,
-                CreatedAt = user.CreatedAt
-            };
+            // jab normal registration vala method call hoga toh usko default role User hi jaayega agar koi specific roe dena he toh RegisterUserWithRoleAsync call karna padega
+            return await RegisterUserWithRoleAsync(registerDto, RoleConstants.User);
         }
 
         public async Task<LoginResponseDto> LoginAsync(LoginDto loginDto)
         {
             // Find user by email
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginDto.Email);
+            var user = await _context.Users
+                .Include(u => u.Role) // Eager load the role
+                .FirstOrDefaultAsync(u => u.Email == loginDto.Email);
 
-            if(user == null)
+            if (user == null)
             {
                 throw new UnauthorizedAccessException("Invalid email or password");
             }
@@ -90,7 +65,8 @@ namespace TaskManagementAPI.Services
                     Id = user.Id,
                     Username = user.Username,
                     Email = user.Email,
-                    CreatedAt = user.CreatedAt
+                    CreatedAt = user.CreatedAt,
+                    Role = user.Role.Name
                 },
 
                 ExpiresAt = expiresAt
@@ -118,6 +94,7 @@ namespace TaskManagementAPI.Services
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
                 new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
+                new Claim(ClaimTypes.Role, user.Role.Name), // Add role claim
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
@@ -135,5 +112,61 @@ namespace TaskManagementAPI.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
+
+        public async Task<UserResponseDto> RegisterUserWithRoleAsync(RegisterDto registerDto, string roleName)
+        {
+            var existingUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == registerDto.Email ||
+                                    u.Username == registerDto.Username);
+
+            if (existingUser == null)
+            {
+                throw new InvalidOperationException("User with this email or username already exists");
+            }
+
+            var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == roleName);
+
+            if (role == null)
+            {
+                // Default to User if specified role does not exist
+                role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == RoleConstants.User);
+
+                if (role == null)
+                {
+                    throw new InvalidOperationException("Default user role not found. pleaase ensure roles are seeded.");
+                }
+            }
+
+            // hash pawword
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
+
+            // create new user
+            var user = new User
+            {
+                Username = registerDto.Username,
+                Email = registerDto.Email,
+                PasswordHash = passwordHash,
+                RoleId = role.Id,
+                CreatedAt = DateTime.UtcNow,
+            };
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+
+            // Load the role navigation property / Read role from database
+            await _context.Entry(user).Reference(u => u.Role).LoadAsync();
+
+            return new UserResponseDto
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                CreatedAt = user.CreatedAt,
+                Role = user.Role.Name
+            };
+
+
+        }
     }
 }
