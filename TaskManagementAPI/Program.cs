@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel;
 using System.Text;
+using TaskManagementAPI.Constants;
 using TaskManagementAPI.Data;
 using TaskManagementAPI.Services;
 
@@ -44,7 +45,28 @@ builder.Services.AddAuthentication(options =>
             Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:SecretKey"]!))
     };
 });
- 
+
+// Configure Authorization policies
+builder.Services.AddAuthorization(options =>
+{
+    // admin only policy
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireRole(RoleConstants.Admin));
+
+
+    // Manager or Admin policy
+    options.AddPolicy("ManagerOrAdmin", policy =>
+       policy.RequireRole(RoleConstants.Admin, RoleConstants.Admin));
+
+    // User polity
+    options.AddPolicy("AuthenticatedUser", policy =>
+       policy.RequireAuthenticatedUser());
+
+
+
+});
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
