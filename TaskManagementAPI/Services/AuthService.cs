@@ -26,8 +26,15 @@ namespace TaskManagementAPI.Services
 
         public async Task<UserResponseDto> RegisterAsync(RegisterDto registerDto)
         {
+            // If a role is passed in the JSON body, use it. Otherwise, fall back to "User".
+            string assignedRole = !string.IsNullOrWhiteSpace(registerDto.Role)
+                ? registerDto.Role
+                : RoleConstants.User;
+
             // jab normal registration vala method call hoga toh usko default role User hi jaayega agar koi specific roe dena he toh RegisterUserWithRoleAsync call karna padega
-            return await RegisterWithRoleAsync(registerDto, RoleConstants.User);
+            // return await RegisterWithRoleAsync(registerDto, RoleConstants.User);
+             return await RegisterWithRoleAsync(registerDto, assignedRole);
+
         }
 
         public async Task<LoginResponseDto> LoginAsync(LoginDto loginDto)
@@ -119,7 +126,7 @@ namespace TaskManagementAPI.Services
                 .FirstOrDefaultAsync(u => u.Email == registerDto.Email ||
                                     u.Username == registerDto.Username);
 
-            if (existingUser == null)
+            if (existingUser != null)
             {
                 throw new InvalidOperationException("User with this email or username already exists");
             }
