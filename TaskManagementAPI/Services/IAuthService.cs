@@ -9,7 +9,7 @@ namespace TaskManagementAPI.Services
         Task<LoginResponseDto> LoginAsync(LoginDto loginDto);
 
 
-        Task<UserResponseDto> RegisterUserWithRoleAsync(RegisterDto registerDto, string roleName);
+        Task<UserResponseDto> RegisterWithRoleAsync(RegisterDto registerDto, string roleName);
 
     }
 }

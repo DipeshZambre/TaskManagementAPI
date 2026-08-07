@@ -27,7 +27,7 @@ namespace TaskManagementAPI.Services
         public async Task<UserResponseDto> RegisterAsync(RegisterDto registerDto)
         {
             // jab normal registration vala method call hoga toh usko default role User hi jaayega agar koi specific roe dena he toh RegisterUserWithRoleAsync call karna padega
-            return await RegisterUserWithRoleAsync(registerDto, RoleConstants.User);
+            return await RegisterWithRoleAsync(registerDto, RoleConstants.User);
         }
 
         public async Task<LoginResponseDto> LoginAsync(LoginDto loginDto)
@@ -113,7 +113,7 @@ namespace TaskManagementAPI.Services
         }
 
 
-        public async Task<UserResponseDto> RegisterUserWithRoleAsync(RegisterDto registerDto, string roleName)
+        public async Task<UserResponseDto> RegisterWithRoleAsync(RegisterDto registerDto, string roleName)
         {
             var existingUser = await _context.Users
                 .FirstOrDefaultAsync(u => u.Email == registerDto.Email ||
