@@ -21,6 +21,7 @@ namespace TaskManagementAPI.Controllers
         }
 
 
+
         // regular users, manager and admins can create tasks
         [HttpPost]
         public async Task<IActionResult> CreateTask([FromBody] CreateTaskDto createTaskDto)
@@ -82,6 +83,7 @@ namespace TaskManagementAPI.Controllers
                 return StatusCode(500, new { message = "An error occured while retrieving tasks", details = ex.Message });
             }
         }
+
 
 
         [HttpGet("{id}")]
