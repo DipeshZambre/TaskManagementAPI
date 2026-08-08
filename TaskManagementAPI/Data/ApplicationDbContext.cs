@@ -16,6 +16,8 @@ namespace TaskManagementAPI.Data
 
         public DbSet<Role> Roles { get; set; } // New DbSet
 
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
+
         // OnModel class is available in DbContext class we just overriding it
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -51,6 +53,11 @@ namespace TaskManagementAPI.Data
                 .HasIndex(r => r.Name)
                 .IsUnique(); // Role names must be unique
 
+
+            // Index or erfresh token for fast lookup (NEW)
+            modelBuilder.Entity<RefreshToken>()
+                .HasIndex(rt => rt.Token)
+                .IsUnique();
 
             modelBuilder.Entity<Role>().HasData(
               new Role

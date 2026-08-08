@@ -23,6 +23,8 @@
 
         public ICollection<TaskItem> Tasks { get; set; } = new List<TaskItem>();
 
-        
+
+        // single user can have multiple refresh token ex. whatsapp on mobile , web app also etc...
+        public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     }
 }
