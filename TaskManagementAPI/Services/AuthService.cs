@@ -7,6 +7,8 @@ using TaskManagementAPI.DTOs;
 using TaskManagementAPI.Models;
 using System.IdentityModel.Tokens.Jwt;
 using TaskManagementAPI.Constants;
+using System.Net;
+using System.Security.Cryptography;
 
 
 namespace TaskManagementAPI.Services
@@ -37,7 +39,7 @@ namespace TaskManagementAPI.Services
 
         }
 
-        public async Task<LoginResponseDto> LoginAsync(LoginDto loginDto)
+        public async Task<LoginResponseDto> LoginAsync(LoginDto loginDto, string ipAddress)
         {
             // Find user by email
 
@@ -58,14 +60,31 @@ namespace TaskManagementAPI.Services
             }
 
             // Generate JWT token
-
-            var token = GenerateJwtToken(user);
-
+            /*
+             * OLD 
+            var token = GenerateJwtToken(user
             var expiresAt = DateTime.UtcNow.AddMinutes(double.Parse(_configuration["JwtSettings:ExpiryMinutes"]!));
+            */
+
+            // Generate Tokens
+            var accessToken = GenerateAccessToken(user);
+            var refreshToken = GenerateRefreshToken(ipAddress);
+
+            // Save refresh token to database
+            refreshToken.UserId = user.Id;
+            _context.RefreshTokens.Add(refreshToken);
+
+            await RemoveOldRefreshTokens(user.Id);
+
+            await _context.SaveChangesAsync();
+
+            var accessTokenExpiry = DateTime.UtcNow.AddMinutes(
+                double.Parse(_configuration["JwtSettings:AccessTokenExpiryMinutes"]!));
 
             return new LoginResponseDto
             {
-                Token = token,
+                /* OLD
+                  Token = token,
 
                 User = new UserResponseDto
                 {
@@ -76,7 +95,22 @@ namespace TaskManagementAPI.Services
                     Role = user.Role.Name
                 },
 
-                ExpiresAt = expiresAt
+                ExpiresAt = expiresAt 
+                */
+
+                AccessToken = accessToken,
+                RefreshToken = refreshToken.Token,
+                User = new UserResponseDto
+                {
+                    Id = user.Id,
+                    Username = user.Username,
+                    Email = user.Email,
+                    CreatedAt = user.CreatedAt,
+                    Role = user.Role.Name
+                },
+
+                AccessTokenExpiresAt = accessTokenExpiry,
+                RefreshTokenExpiresAt = refreshToken.ExpiresAt
             };
 
         }
@@ -173,7 +207,160 @@ namespace TaskManagementAPI.Services
                 Role = user.Role.Name
             };
 
+          
+        }
 
+        public async Task<RefreshTokenResponseDto> RefreshTokenAsync(string token, string ipAddress)
+        {
+            var user = await GetUserByRefreshToken(token);
+
+            var refreshToken = user.RefreshTokens.Single(rt => rt.Token == token);
+
+            if(!refreshToken.IsActive)
+            {
+                throw new UnauthorizedAccessException("Invalid or expired refresh token");
+            }
+
+            // Gnerate new tokens
+            var newAccessToken = GenerateAccessToken(user);
+            var newRefreshToken = GenerateRefreshToken(ipAddress);   
+            newRefreshToken.UserId = user.Id; 
+
+            // Mark old refresh token as replaced
+            refreshToken.RevokedAt = DateTime.UtcNow;
+            refreshToken.RevokedByIp = ipAddress;
+            refreshToken.ReplacedByToken = newRefreshToken.Token;
+
+            // save new refresh token
+            _context.RefreshTokens.Add(newRefreshToken);
+
+            // Remove old refresh tokens
+            await RemoveOldRefreshTokens(user.Id);
+
+            await _context.SaveChangesAsync();
+
+            var accessTokenExpiry = DateTime.UtcNow.AddMinutes(
+                double.Parse(_configuration["JwtSettings:AccessTokenExpiryMinutes"]!));
+
+
+            return new RefreshTokenResponseDto
+            {
+                AccessToken = newAccessToken,
+                RefreshToken = newRefreshToken.Token,
+                AccessTokenExpiresAt = accessTokenExpiry,
+                RefreshTokenExpiresAt = newRefreshToken.ExpiresAt
+            };
+
+        }
+
+        public async Task<bool> RevokeTokenAsync(string token, string ipAddress)
+        {
+            var user = await GetUserByRefreshToken(token);
+            var refreshToken = user.RefreshTokens.Single(rt => rt.Token == token);
+
+            if(!refreshToken.IsActive)
+            {
+                // if refresh token is not active return false
+                return false;
+            }
+
+            // Revoke token
+            refreshToken.RevokedAt = DateTime.UtcNow;
+            refreshToken.RevokedByIp = ipAddress;
+
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+
+
+        private string GenerateAccessToken(User user)
+        {
+            // Get JWT settings from configuration
+            var secretKey = _configuration["JwtSettings:SecretKey"];
+            var issuer = _configuration["JwtSettings:Issuer"];
+            var audience = _configuration["JwtSettings:Audience"];
+            var expiryMinutes = double.Parse(_configuration["JwtSettings:ExpiryMinutes"]!);
+
+
+            // Create security key
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            // Define claims (user information to include in token)
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, user.Email),
+                new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
+                new Claim(ClaimTypes.Role, user.Role.Name), 
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            // Create the token
+
+            var token = new JwtSecurityToken(
+                issuer: issuer,
+                audience: audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+                signingCredentials: credentials
+            );
+
+            // Return the serialized token
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+
+        private RefreshToken GenerateRefreshToken(string ipAddress)
+        {
+            var refreshTokenExpiry = double.Parse(_configuration["JwtSettings:RefreshTokenExpiryDays"]!);
+
+            // Generate cryptographycally secure random token
+            var randomBytes = new byte[64];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(randomBytes);
+            var token = Convert.ToBase64String(randomBytes);
+
+            return new RefreshToken
+            {
+                Token = token,
+                ExpiresAt = DateTime.UtcNow.AddDays(refreshTokenExpiry),
+                CreatedAt = DateTime.UtcNow,
+                CreatedByIp = ipAddress
+            };
+        }
+
+        private async Task RemoveOldRefreshTokens(int userId)
+        {
+            var tokenToRemove = await _context.RefreshTokens
+                .Where(rt => rt.UserId == userId &&
+                              !rt.IsActive &&
+                              rt.CreatedAt.AddDays(30) < DateTime.UtcNow)
+                .ToListAsync();
+
+
+            if(tokenToRemove.Any())
+            {
+                // jitne bhi tokense honge saare ke saare range me remove ho jaayenge matlab eksaath
+                _context.RefreshTokens.RemoveRange(tokenToRemove);
+            }
+        }
+
+        private async Task<User> GetUserByRefreshToken(string token)
+        {
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.RefreshTokens)
+                .SingleOrDefaultAsync(u => u.RefreshTokens.Any(rt => rt.Token == token));
+
+            if(user == null)
+            {
+                throw new UnauthorizedAccessException("Invalid refresh token");
+            }
+
+            return user;
         }
     }
 }
