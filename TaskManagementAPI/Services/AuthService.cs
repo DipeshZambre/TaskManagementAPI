@@ -280,7 +280,7 @@ namespace TaskManagementAPI.Services
             var secretKey = _configuration["JwtSettings:SecretKey"];
             var issuer = _configuration["JwtSettings:Issuer"];
             var audience = _configuration["JwtSettings:Audience"];
-            var expiryMinutes = double.Parse(_configuration["JwtSettings:ExpiryMinutes"]!);
+            var expiryMinutes = double.Parse(_configuration["JwtSettings:AccessTokenExpiryMinutes"]!);
 
 
             // Create security key
@@ -332,6 +332,7 @@ namespace TaskManagementAPI.Services
             };
         }
 
+        /*
         private async Task RemoveOldRefreshTokens(int userId)
         {
             var tokenToRemove = await _context.RefreshTokens
@@ -344,6 +345,25 @@ namespace TaskManagementAPI.Services
             if(tokenToRemove.Any())
             {
                 // jitne bhi tokense honge saare ke saare range me remove ho jaayenge matlab eksaath
+                _context.RefreshTokens.RemoveRange(tokenToRemove);
+            }
+        }
+        */
+
+        private async Task RemoveOldRefreshTokens(int userId)
+        {
+            // 1. Fetch only the user's tokens from the database into server memory first
+            var userTokens = await _context.RefreshTokens
+                .Where(rt => rt.UserId == userId)
+                .ToListAsync(); // 👈 This moves processing from SQL to C# memory
+
+            // 2. Now C# can safely read your custom 'IsActive' helper property
+            var tokenToRemove = userTokens
+                .Where(rt => !rt.IsActive && rt.CreatedAt.AddDays(30) < DateTime.UtcNow)
+                .ToList();
+
+            if (tokenToRemove.Any())
+            {
                 _context.RefreshTokens.RemoveRange(tokenToRemove);
             }
         }
