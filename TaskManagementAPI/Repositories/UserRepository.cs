@@ -80,7 +80,7 @@ namespace TaskManagementAPI.Repositories
         /// Needed for token refresh and revocation operatios.
         /// Cannot use base.FirstOrDefaultAsync() because we need multiple Includes.
         /// </summary>
-        public async Task<User?> GetUserWithRefreshTokenAsync(string refreshToken)
+        public async Task<User?> GetUserWithRefreshTokensAsync(string refreshToken)
         {
             // Must write custom query here because we need TWO levels of eager loading:
             // 1. Include Role    -> needed for jWT generation when refreshing

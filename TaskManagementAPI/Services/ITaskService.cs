@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.Eventing.Reader;
 using TaskManagementAPI.DTOs;
+using TaskManagementAPI.Models;
 
 namespace TaskManagementAPI.Services
 {
@@ -10,7 +11,7 @@ namespace TaskManagementAPI.Services
         // Fetch all tasks
         Task<List<TaskResponseDto>> GetUserTasksAsync(int userId);
 
-        Task<TaskResponseDto?> GetTasksByIdAsync(int tasksId, int userId);
+        Task<TaskResponseDto?> GetTaskByIdAsync(int tasksId, int userId);
 
         Task<TaskResponseDto?> UpdateTaskAsync(int taskId, UpdateTaskDto updateTaskDto, int userId);
 
@@ -27,5 +28,6 @@ namespace TaskManagementAPI.Services
         Task<TaskResponseDto?> UpdateAnyTaskAsync(int taskId, UpdateTaskDto updateTaskDto); // Update any task
 
         Task<bool> DeleteAnyTaskAsync(int taskId); // Delete any task
+
     }
 }

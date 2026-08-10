@@ -96,7 +96,7 @@ namespace TaskManagementAPI.Controllers
                 var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
 
 
-                var task = await _taskService.GetTasksByIdAsync(id, userId);
+                var task = await _taskService.GetTaskByIdAsync(id, userId);
 
 
 
