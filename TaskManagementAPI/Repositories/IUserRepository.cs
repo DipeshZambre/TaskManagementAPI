@@ -54,7 +54,7 @@ namespace TaskManagementAPI.Repositories
         /// used in: AuthService.RefreshTokenAsync(), AuthService.RevokeTokenAsync()
         /// Requires eager loadiing of both Role abd RefreshTokens navigation properties
         /// </summary>
-        Task<User?> GetUserWithRefreshTokenAsync(string refreshToken);
+        Task<User?> GetUserWithRefreshTokensAsync(string refreshToken);
 
     }
 }
