@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Text;
 using TaskManagementAPI.Constants;
 using TaskManagementAPI.Data;
+using TaskManagementAPI.Repositories;
 using TaskManagementAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,12 +21,29 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// REPOSITORY REGISSTRATION
+// Order: Genefric first, then specific repositories
+
+// Generic repository - available for any entity type if needed
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+// User repository - used by AuthService
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+// Task repository - used by TaskService
+builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+
+// RefreshToken repository - used by AuthService
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+
 // Register Auth Service
 // AddScoped me har ek request ke liye jo service hoti he uska new instance banta he (Request ki shuruvat me), Uske baad me vahi request ka jo object hota he voh within the request serve hota rehta he, fir jab ham new request karte he toh firse new object banta he aur within that request vahi object serve hota rehta he, jab request khatam ho jaati he toh voh bana hua object apne aap destroy ho jaata he
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Register Task Service
 builder.Services.AddScoped<ITaskService, TaskService>();
+
+
 
 builder.Services.AddAuthentication(options =>
 {
