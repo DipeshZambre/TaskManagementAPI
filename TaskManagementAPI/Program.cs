@@ -21,6 +21,24 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+
+// CORS - must be registered before app.build()
+// AllowCredentials() is required for HTTP-only refresh token cookies
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngularApp", policy =>
+    {
+        policy.WithOrigins(
+            "http://localhost:4200", // Angular dev server
+            "https://localhost:4200" // in case Angular uses https later
+            )
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();        // Required for cookies/auth header
+    });
+});
+
+
 // REPOSITORY REGISSTRATION
 // Order: Genefric first, then specific repositories
 
@@ -96,6 +114,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Middleware Order Matters:
+// CORS -> Authentication -> Authorization
+// CORS must come before auth so preflight requests are handled correctly
+app.UseCors("AllowAngularApp");
+
 
 app.UseAuthentication();
 app.UseAuthorization();
